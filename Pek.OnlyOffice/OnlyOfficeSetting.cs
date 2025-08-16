@@ -13,5 +13,5 @@ public class OnlyOfficeSetting : Config<OnlyOfficeSetting>
     /// OnlyOffice地址
     /// </summary>
     [Description("OnlyOffice地址")]
-    public String? OnlyOfficeUrl { get; set; }
+    public String OnlyOfficeUrl { get; set; } = String.Empty;
 }

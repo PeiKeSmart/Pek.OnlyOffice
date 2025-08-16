@@ -53,29 +53,28 @@ public class DHStartup : IPekStartup
     /// <param name="endpoints">路由生成器</param>
     public void UseDHEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // 高德密钥反向代码
-        endpoints.Map("/_AMapService/v4/map/styles", async context =>
+        // OnlyOffice代理服务
+        endpoints.Map("/_OnlyOffice/", async context =>
         {
-            await ProxyRequest(context, "https://webapi.amap.com/v4/map/styles", "/_AMapService/").ConfigureAwait(false);
-        });
-
-        endpoints.Map("/_AMapService/v3/vectormap", async context =>
-        {
-            await ProxyRequest(context, "https://fmap01.amap.com/v3/vectormap", "/_AMapService/").ConfigureAwait(false);
-        });
-
-        endpoints.Map("/_AMapService/{**path}", async context =>
-        {
-            await ProxyRequest(context, "https://restapi.amap.com/", "/_AMapService/").ConfigureAwait(false);
+            await ProxyRequest(context, OnlyOfficeSetting.Current.OnlyOfficeUrl, "/_OnlyOffice/").ConfigureAwait(false);
         });
     }
 
     private async Task ProxyRequest(HttpContext context, String targetUrl, String replaceUrl)
     {
-        var queryString = context.Request.QueryString;
-        var newQueryString = queryString.Add("jscode", AMapSetting.Current.AMapSecret ?? String.Empty);
+        // 检查OnlyOfficeUrl是否为空
+        if (targetUrl.IsNullOrWhiteSpace())
+        {
+            context.Response.StatusCode = 400; // Bad Request
+            context.Response.ContentType = "application/json; charset=utf-8";
+            var errorMessage = "{\"error\": \"OnlyOffice服务地址未配置，请在系统设置中配置OnlyOfficeUrl参数\"}";
+            await context.Response.WriteAsync(errorMessage).ConfigureAwait(false);
+            return;
+        }
 
-        var targetUrlWithQueryString = targetUrl + context.Request.Path.Value?.Replace(replaceUrl, "") + newQueryString;
+        var queryString = context.Request.QueryString;
+
+        var targetUrlWithQueryString = targetUrl + context.Request.Path.Value?.Replace(replaceUrl, "") + queryString;
 
         using var client = new HttpClient();
         var method = context.Request.Method;
