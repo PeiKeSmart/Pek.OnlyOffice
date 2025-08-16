@@ -1,6 +1,8 @@
 ﻿using System.Text;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 
 using NewLife;
 using NewLife.Log;
@@ -17,6 +19,16 @@ namespace Pek.OnlyOffice.Controllers;
 [Route("_OnlyOffice")]
 public class OnlyOfficeProxyController : ControllerBase
 {
+    private readonly IWebHostEnvironment _environment;
+
+    /// <summary>
+    /// 构造函数
+    /// </summary>
+    /// <param name="environment">Web主机环境</param>
+    public OnlyOfficeProxyController(IWebHostEnvironment environment)
+    {
+        _environment = environment;
+    }
     /// <summary>
     /// 代理所有OnlyOffice请求
     /// </summary>
@@ -38,34 +50,37 @@ public class OnlyOfficeProxyController : ControllerBase
         }
 
         var queryString = HttpContext.Request.QueryString;
+        String targetUrlWithQueryString;
+        String? xTargetUrl = null;
 
-#if DEBUG
-        // DEBUG模式下使用代理服务器
-        var proxyUrl = PekSysSetting.Current.LocalProxyUrl;
-        var targetPath = path.IsNullOrWhiteSpace() ? "" : $"/{path}";
-        var targetUrlWithQueryString = $"{proxyUrl}{queryString}";
-        var xTargetUrl = $"{OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/')}{targetPath}";
+        // 根据运行环境决定使用代理还是直接请求
+        if (_environment.IsDevelopment())
+        {
+            // 开发模式下使用代理服务器
+            var proxyUrl = PekSysSetting.Current.LocalProxyUrl;
+            var targetPath = path.IsNullOrWhiteSpace() ? "" : $"/{path}";
+            targetUrlWithQueryString = $"{proxyUrl}{queryString}";
+            xTargetUrl = $"{OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/')}{targetPath}";
 
-        XTrace.WriteLine($"DEBUG模式: 使用代理服务器 {proxyUrl}, X-Target-Url: {xTargetUrl}");
-#else
-        // 生产模式下直接请求OnlyOffice服务
-        var targetUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/');
-        var targetUrlWithQueryString = $"{targetUrl}/{path}{queryString}";
-        String xTargetUrl = null;
+            XTrace.WriteLine($"开发模式: 使用代理服务器 {proxyUrl}, X-Target-Url: {xTargetUrl}");
+        }
+        else
+        {
+            // 生产模式下直接请求OnlyOffice服务
+            var targetUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/');
+            targetUrlWithQueryString = $"{targetUrl}/{path}{queryString}";
 
-        XTrace.WriteLine($"生产模式: 直接请求 {targetUrlWithQueryString}");
-#endif
+            XTrace.WriteLine($"生产模式: 直接请求 {targetUrlWithQueryString}");
+        }
 
         using var client = new HttpClient();
 
-#if DEBUG
-        // DEBUG模式下添加X-Target-Url头部
-        if (!xTargetUrl.IsNullOrWhiteSpace())
+        // 开发模式下添加代理头部
+        if (_environment.IsDevelopment() && !xTargetUrl.IsNullOrWhiteSpace())
         {
             client.DefaultRequestHeaders.Add("X-Target-Url", xTargetUrl);
             client.DefaultRequestHeaders.Add("X-Token-Code", PekSysSetting.Current.LocalProxyCode);
         }
-#endif
 
         var method = HttpContext.Request.Method;
 
@@ -99,14 +114,12 @@ public class OnlyOfficeProxyController : ControllerBase
                     {
                         Content = patchContent
                     };
-#if DEBUG
-                    // DEBUG模式下为PATCH请求也添加X-Target-Url头部
-                    if (!xTargetUrl.IsNullOrWhiteSpace())
+                    // 开发模式下为PATCH请求也添加代理头部
+                    if (_environment.IsDevelopment() && !xTargetUrl.IsNullOrWhiteSpace())
                     {
                         patchRequest.Headers.Add("X-Target-Url", xTargetUrl);
                         patchRequest.Headers.Add("X-Token-Code", PekSysSetting.Current.LocalProxyCode);
                     }
-#endif
                     response = await client.SendAsync(patchRequest).ConfigureAwait(false);
                     break;
 
