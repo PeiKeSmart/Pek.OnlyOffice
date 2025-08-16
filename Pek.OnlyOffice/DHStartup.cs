@@ -1,18 +1,11 @@
-﻿using System.Text;
-
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-using NewLife;
-
 using Pek.Infrastructure;
 using Pek.VirtualFileSystem;
-
-using XCode.Membership;
 
 namespace Pek.OnlyOffice;
 
@@ -55,81 +48,10 @@ public class DHStartup : IPekStartup
     /// <param name="endpoints">路由生成器</param>
     public void UseDHEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // OnlyOffice代理服务
-        endpoints.Map("/_OnlyOffice/", async context =>
-        {
-            await ProxyRequest(context, OnlyOfficeSetting.Current.OnlyOfficeUrl, "/_OnlyOffice/").ConfigureAwait(false);
-        });
+        // OnlyOffice代理服务现在通过控制器处理，无需在此注册端点
     }
 
-    private async Task ProxyRequest(HttpContext context, String targetUrl, String replaceUrl)
-    {
-        // 检查OnlyOfficeUrl是否为空
-        if (targetUrl.IsNullOrWhiteSpace())
-        {
-            context.Response.StatusCode = 400; // Bad Request
-            context.Response.ContentType = "application/json; charset=utf-8";
-            var errorMessage = "{\"error\": \"OnlyOffice服务地址未配置，请在系统设置中配置OnlyOfficeUrl参数\"}";
-            await context.Response.WriteAsync(errorMessage).ConfigureAwait(false);
-            return;
-        }
 
-        if (ManageProvider.User == null || !ManageProvider.User.Enable) // 用户没有权限或者禁用
-        {
-            context.Response.StatusCode = 403; // Forbidden
-            context.Response.ContentType = "application/json; charset=utf-8";
-            var errorMessage = "{\"error\": \"您没有权限访问此资源\"}";
-            await context.Response.WriteAsync(errorMessage).ConfigureAwait(false);
-            return;
-        }
-
-        var queryString = context.Request.QueryString;
-
-        var targetUrlWithQueryString = targetUrl + context.Request.Path.Value?.Replace(replaceUrl, "") + queryString;
-
-        using var client = new HttpClient();
-        var method = context.Request.Method;
-
-        if (method.EqualIgnoreCase("GET"))
-        {
-            var response = await client.GetAsync(targetUrlWithQueryString).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                context.Response.ContentType = response.Content.Headers.ContentType?.ToString();
-                await context.Response.WriteAsync(content).ConfigureAwait(false);
-            }
-            else
-            {
-                context.Response.StatusCode = (Int32)response.StatusCode;
-            }
-        }
-        else if (method.EqualIgnoreCase("POST"))
-        {
-            using var reader = new StreamReader(context.Request.Body, Encoding.UTF8);
-            var requestBody = await reader.ReadToEndAsync().ConfigureAwait(false);
-
-            // 使用 HttpClient 发送 POST 请求
-            using var httpClient = new HttpClient();
-            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-            var response = await httpClient.PostAsync(targetUrlWithQueryString, content).ConfigureAwait(false);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var content1 = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                context.Response.ContentType = response.Content.Headers.ContentType?.ToString();
-                await context.Response.WriteAsync(content1).ConfigureAwait(false);
-            }
-            else
-            {
-                context.Response.StatusCode = (Int32)response.StatusCode;
-            }
-        }
-        else
-        {
-
-        }
-    }
 
     /// <summary>
     /// 将区域路由写入数据库
