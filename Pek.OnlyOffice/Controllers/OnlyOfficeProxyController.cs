@@ -57,18 +57,23 @@ public class OnlyOfficeProxyController : ControllerBase
         if (_environment.IsDevelopment())
         {
             // 开发模式下使用代理服务器
-            var proxyUrl = PekSysSetting.Current.LocalProxyUrl;
+            var proxyUrl = PekSysSetting.Current.LocalProxyUrl.TrimEnd('/');
             var targetPath = path.IsNullOrWhiteSpace() ? "" : $"/{path}";
-            targetUrlWithQueryString = $"{proxyUrl}{queryString}";
-            xTargetUrl = $"{OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/')}{targetPath}";
 
-            XTrace.WriteLine($"开发模式: 使用代理服务器 {proxyUrl}, X-Target-Url: {xTargetUrl}");
+            // 代理URL包含完整路径
+            targetUrlWithQueryString = $"{proxyUrl}{targetPath}{queryString}";
+
+            // X-Target-Url只包含目标域名，不包含路径
+            xTargetUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/') + "/";
+
+            XTrace.WriteLine($"开发模式: 代理请求 {targetUrlWithQueryString}, X-Target-Url: {xTargetUrl}");
         }
         else
         {
             // 生产模式下直接请求OnlyOffice服务
             var targetUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/');
-            targetUrlWithQueryString = $"{targetUrl}/{path}{queryString}";
+            var targetPath = path.IsNullOrWhiteSpace() ? "" : $"/{path}";
+            targetUrlWithQueryString = $"{targetUrl}{targetPath}{queryString}";
 
             XTrace.WriteLine($"生产模式: 直接请求 {targetUrlWithQueryString}");
         }
