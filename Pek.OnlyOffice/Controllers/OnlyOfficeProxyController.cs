@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Log;
 
+using Pek.Configs;
 using Pek.Permissions;
 
 namespace Pek.OnlyOffice.Controllers;
@@ -37,10 +38,35 @@ public class OnlyOfficeProxyController : ControllerBase
         }
 
         var queryString = HttpContext.Request.QueryString;
+
+#if DEBUG
+        // DEBUG模式下使用代理服务器
+        var proxyUrl = PekSysSetting.Current.LocalProxyUrl;
+        var targetPath = path.IsNullOrWhiteSpace() ? "" : $"/{path}";
+        var targetUrlWithQueryString = $"{proxyUrl}{queryString}";
+        var xTargetUrl = $"{OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/')}{targetPath}";
+
+        XTrace.WriteLine($"DEBUG模式: 使用代理服务器 {proxyUrl}, X-Target-Url: {xTargetUrl}");
+#else
+        // 生产模式下直接请求OnlyOffice服务
         var targetUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl.TrimEnd('/');
         var targetUrlWithQueryString = $"{targetUrl}/{path}{queryString}";
+        String xTargetUrl = null;
+
+        XTrace.WriteLine($"生产模式: 直接请求 {targetUrlWithQueryString}");
+#endif
 
         using var client = new HttpClient();
+
+#if DEBUG
+        // DEBUG模式下添加X-Target-Url头部
+        if (!xTargetUrl.IsNullOrWhiteSpace())
+        {
+            client.DefaultRequestHeaders.Add("X-Target-Url", xTargetUrl);
+            client.DefaultRequestHeaders.Add("X-Token-Code", PekSysSetting.Current.LocalProxyCode);
+        }
+#endif
+
         var method = HttpContext.Request.Method;
 
         try
@@ -73,6 +99,14 @@ public class OnlyOfficeProxyController : ControllerBase
                     {
                         Content = patchContent
                     };
+#if DEBUG
+                    // DEBUG模式下为PATCH请求也添加X-Target-Url头部
+                    if (!xTargetUrl.IsNullOrWhiteSpace())
+                    {
+                        patchRequest.Headers.Add("X-Target-Url", xTargetUrl);
+                        patchRequest.Headers.Add("X-Token-Code", PekSysSetting.Current.LocalProxyCode);
+                    }
+#endif
                     response = await client.SendAsync(patchRequest).ConfigureAwait(false);
                     break;
 
