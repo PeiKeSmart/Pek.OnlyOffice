@@ -12,6 +12,8 @@ using NewLife;
 using Pek.Infrastructure;
 using Pek.VirtualFileSystem;
 
+using XCode.Membership;
+
 namespace Pek.OnlyOffice;
 
 /// <summary>
@@ -68,6 +70,15 @@ public class DHStartup : IPekStartup
             context.Response.StatusCode = 400; // Bad Request
             context.Response.ContentType = "application/json; charset=utf-8";
             var errorMessage = "{\"error\": \"OnlyOffice服务地址未配置，请在系统设置中配置OnlyOfficeUrl参数\"}";
+            await context.Response.WriteAsync(errorMessage).ConfigureAwait(false);
+            return;
+        }
+
+        if (ManageProvider.User == null || !ManageProvider.User.Enable) // 用户没有权限或者禁用
+        {
+            context.Response.StatusCode = 403; // Forbidden
+            context.Response.ContentType = "application/json; charset=utf-8";
+            var errorMessage = "{\"error\": \"您没有权限访问此资源\"}";
             await context.Response.WriteAsync(errorMessage).ConfigureAwait(false);
             return;
         }
