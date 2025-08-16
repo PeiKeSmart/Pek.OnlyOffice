@@ -20,13 +20,13 @@ public class OnlyOfficeProxyController : ControllerBase
     /// </summary>
     /// <param name="path">请求路径</param>
     /// <returns></returns>
-    [JwtAuthorize("OnlyOffice")]
+    //[JwtAuthorize("OnlyOffice")]
     [HttpGet("{**path}")]
     [HttpPost("{**path}")]
     [HttpPut("{**path}")]
     [HttpDelete("{**path}")]
     [HttpPatch("{**path}")]
-    public async Task<IActionResult> ProxyRequest(string path = "")
+    public async Task<IActionResult> ProxyRequest(String path = "")
     {
         // 检查OnlyOfficeUrl是否为空
         if (OnlyOfficeSetting.Current.OnlyOfficeUrl.IsNullOrWhiteSpace())
