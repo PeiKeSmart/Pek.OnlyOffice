@@ -3,6 +3,7 @@
 using Microsoft.AspNetCore.Mvc;
 
 using NewLife;
+using NewLife.Log;
 
 using Pek.Permissions;
 
@@ -31,6 +32,7 @@ public class OnlyOfficeProxyController : ControllerBase
         // 检查OnlyOfficeUrl是否为空
         if (OnlyOfficeSetting.Current.OnlyOfficeUrl.IsNullOrWhiteSpace())
         {
+            XTrace.WriteLine($"OnlyOffice服务地址未配置，请在系统设置中配置OnlyOfficeUrl参数");
             return BadRequest(new { error = "OnlyOffice服务地址未配置，请在系统设置中配置OnlyOfficeUrl参数" });
         }
 
