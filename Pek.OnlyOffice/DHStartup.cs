@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using Pek.Infrastructure;
+using Pek.OnlyOffice.Middleware;
 using Pek.VirtualFileSystem;
 
 namespace Pek.OnlyOffice;
@@ -22,7 +23,7 @@ public class DHStartup : IPekStartup
     /// <param name="webHostEnvironment">应用程序的环境</param>
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration, IWebHostEnvironment webHostEnvironment)
     {
-
+        // WebSocket支持在ASP.NET Core中是内置的，不需要额外配置服务
     }
 
     /// <summary>
@@ -31,7 +32,14 @@ public class DHStartup : IPekStartup
     /// <param name="application">用于配置应用程序的请求管道的生成器</param>
     public void Configure(IApplicationBuilder application)
     {
+        // 启用WebSocket支持，配置选项
+        application.UseWebSockets(new WebSocketOptions
+        {
+            KeepAliveInterval = TimeSpan.FromMinutes(2)
+        });
 
+        // 添加WebSocket代理中间件
+        application.UseMiddleware<OnlyOfficeWebSocketProxyMiddleware>();
     }
 
     /// <summary>

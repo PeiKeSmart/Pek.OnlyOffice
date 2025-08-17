@@ -42,6 +42,13 @@ public class OnlyOfficeProxyController : ControllerBase
     [HttpPatch("{**path}")]
     public async Task<IActionResult> ProxyRequest(String path = "")
     {
+        // 检查是否是WebSocket升级请求
+        if (HttpContext.WebSockets.IsWebSocketRequest)
+        {
+            // WebSocket请求由中间件处理，这里不应该到达
+            XTrace.WriteLine("WebSocket请求应该由中间件处理，但到达了控制器");
+            return BadRequest(new { error = "WebSocket请求处理异常" });
+        }
         // 检查OnlyOfficeUrl是否为空
         if (OnlyOfficeSetting.Current.OnlyOfficeUrl.IsNullOrWhiteSpace())
         {
@@ -186,5 +193,27 @@ public class OnlyOfficeProxyController : ControllerBase
         
         var contentType = HttpContext.Request.ContentType ?? "application/json";
         return new StringContent(requestBody, Encoding.UTF8, contentType);
+    }
+
+    /// <summary>
+    /// 获取WebSocket连接信息
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet("websocket/info")]
+    public IActionResult GetWebSocketInfo()
+    {
+        var info = new
+        {
+            IsWebSocketRequest = HttpContext.WebSockets.IsWebSocketRequest,
+            OnlyOfficeUrl = OnlyOfficeSetting.Current.OnlyOfficeUrl,
+            Environment = _environment.EnvironmentName,
+            ProxyUrl = _environment.IsDevelopment() ? PekSysSetting.Current.LocalProxyUrl : null,
+            WebSocketSupported = true, // WebSocket is always supported
+            Headers = HttpContext.Request.Headers
+                .Where(h => h.Key.StartsWith("Sec-WebSocket") || h.Key.Equals("Upgrade", StringComparison.OrdinalIgnoreCase) || h.Key.Equals("Connection", StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(h => h.Key, h => h.Value.ToString())
+        };
+
+        return Ok(info);
     }
 }
